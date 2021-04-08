@@ -1,0 +1,108 @@
+#include <WaziDev.h>
+#include <xlpp.h>
+#include <Base64.h>
+
+// NwkSKey (Network Session Key) and Appkey (AppKey) are used for securing LoRaWAN transmissions.
+// You need to copy them from/to your LoRaWAN server or gateway.
+// You need to configure also the devAddr. DevAddr need to be different for each devices!!
+// Copy'n'paste the DevAddr (Device Address): 170607BB
+//170607BB
+unsigned char devAddr[4] = {0x17, 0x06, 0x07, 0xBB};
+
+// Copy'n'paste the key to your Wazigate: 05CFD92C908C015C0D7AF92275499D69
+unsigned char appSkey[16] = {0x05, 0xCF, 0xD9, 0x2C, 0x90, 0x8C, 0x01, 0x5C, 0x0D, 0x7A, 0xF9, 0x22, 0x75, 0x49, 0x9D, 0x69};
+
+// Copy'n'paste the key to your Wazigate: 05CFD92C908C015C0D7AF92275499D69
+unsigned char nwkSkey[16] = {0x05, 0xCF, 0xD9, 0x2C, 0x90, 0x8C, 0x01, 0x5C, 0x0D, 0x7A, 0xF9, 0x22, 0x75, 0x49, 0x9D, 0x69};
+//Constants
+
+
+const int pingPin = 7; // Trigger Pin of Ultrasonic Sensor
+const int echoPin = 6; // Echo Pin of Ultrasonic Sensor
+
+WaziDev wazidev;
+
+void setup() {
+  Serial.begin(38400); // initialize the serial port
+
+  wazidev.setupLoRaWAN(devAddr, appSkey, nwkSkey);
+}
+XLPP xlpp(120);
+
+void loop() {
+  // Create xlpp payload.
+  xlpp.reset();
+
+ float duration, inches, cm;
+  pinMode(pingPin, OUTPUT);
+  digitalWrite(pingPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(pingPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(pingPin, LOW);
+  pinMode(echoPin, INPUT);
+  duration = pulseIn(echoPin, HIGH);
+  inches = microsecondsToInches(duration);
+  cm = microsecondsToCentimeters(duration);
+  
+  xlpp.addDistance(0, cm); // cm
+  
+  Serial.print(inches);
+  Serial.println("in, ");
+  Serial.print(cm);
+  Serial.print("cm");
+  Serial.println();
+  // 2.
+  // Send paload with LoRaWAN.
+  serialPrintf("LoRaWAN send ... ");
+  uint8_t e = wazidev.sendLoRaWAN(xlpp.buf, xlpp.len);
+  if (e != 0)
+  {
+    serialPrintf("Err %d\n", e);
+    delay(70000);
+    return;
+  }
+  serialPrintf("OK\n");
+
+  // 3.
+  // Receive LoRaWAN message (waiting for 6 seconds only).
+  serialPrintf("LoRa receive ... ");
+  uint8_t offs = 0;
+  long startSend = millis();
+  e = wazidev.receiveLoRaWAN(xlpp.buf, &xlpp.offset, &xlpp.len, 6000);
+  long endSend = millis();
+  if (e != 0)
+  {
+    if (e == ERR_LORA_TIMEOUT) {
+      serialPrintf("nothing received\n");
+    }
+    else
+    {
+      serialPrintf("Err %d\n", e);
+    }
+    delay(60000);
+    return;
+  }
+  serialPrintf("OK\n");
+
+  serialPrintf("Time On Air: %d ms\n", endSend - startSend);
+  serialPrintf("LoRa SNR: %d\n", wazidev.loRaSNR);
+  serialPrintf("LoRa RSSI: %d\n", wazidev.loRaRSSI);
+  serialPrintf("LoRaWAN frame size: %d\n", xlpp.offset + xlpp.len);
+  serialPrintf("LoRaWAN payload len: %d\n", xlpp.len);
+  serialPrintf("Payload: ");
+  char payload[100];
+  base64_decode(payload, xlpp.getBuffer(), xlpp.len);
+  serialPrintf(payload);
+  serialPrintf("\n");
+
+  delay(60000);
+}
+
+long microsecondsToInches(long microseconds) {
+  return microseconds / 74 / 2;
+}
+
+long microsecondsToCentimeters(long microseconds) {
+  return microseconds / 29 / 2;
+}
