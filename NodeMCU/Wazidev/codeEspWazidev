@@ -1,0 +1,137 @@
+#include <SPI.h>
+#include <ESP8266WiFi.h>
+#include <ArduinoHttpClient.h>
+//#include<FirebaseArduino.h>
+
+//#define FIREBASE_HOST "strath-water-node-esp8266-default-rtdb.firebaseio.com" //Your Firebase Project URL goes here without "http:" , "\" and "/"
+//#define FIREBASE_AUTH "hJW3dPPhpAUuoIlU3WXpPOCbTbF3JyEvTjQPZinn" //Your Firebase Database Secret goes here
+//
+//#define WIFI_SSID "Incubator" //your WiFi SSID for which yout NodeMCU connects
+//#define WIFI_PASSWORD "Incubator#2013"//Password of your wifi network 
+//
+char ssid[] = "Incubator";   // your network SSID (name)
+char pass[] = "Incubator#2013";    // your network password (use for WPA, or use as key for WEP)
+
+// Déclaration path and port
+char server[] = "api.waziup.io";
+char resource[]   = "/api/v2/devices/TpDispenser1/sensors/DST/value";
+char contentType[] = "text/plain;charset=utf-8";
+int port = 80;
+
+WiFiClient wifiClient;
+HttpClient httpClient = HttpClient(wifiClient, server, port);
+
+// defines pins numbers
+const int trigPin = 2;  //D4
+const int echoPin = 0;  //D3
+
+
+
+void setup() {
+  
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
+
+  Serial.begin(115200); //baud rate ,if you want to see the process in the serial monitor ,same baud rate should be set.
+  //Initialize serial and wait for port to open:
+//  Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+  Serial.println("Ready");
+  // check for the WiFi module:
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println("Communication with WiFi module failed!");
+    // don't continue
+    while (true);
+  }
+
+  // attempt to connect to WiFi network:
+  int status = WL_IDLE_STATUS;
+  while (status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+    status = WiFi.begin(ssid, pass);
+    // wait 10 seconds for connection:
+    delay(10000);
+  }
+
+  Serial.println("Connected to wifi");
+  printWiFiStatus();
+}
+
+void loop() {
+//  if (Firebase.failed()) {
+//    Serial.print("Failed to connect");
+//    Serial.println(Firebase.error());
+//    Serial.println();
+//    Serial.println();
+//    firebasereconnect();
+//    return;
+//  }
+  // defines variables
+  float duration;
+  float distance;
+  // Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+
+  // Calculating the distance
+  distance = duration * 0.034 / 2;
+  // Prints the distance on the Serial Monitor
+//String fireDist = String(distance)+String("cm");
+//delay (4000);
+//
+////  Firebase.setString("Distance", String(distance));
+////  //  Firebase.setString("humidity",String(humidity));
+
+
+
+  //Send the message to WaziCloud
+  httpClient.post(resource, contentType, distance);
+  // read the status code and body of the response
+  int statusCode = httpClient.responseStatusCode();
+  String response = httpClient.responseBody();
+
+  Serial.print("Status code: ");
+  Serial.println(statusCode);
+  Serial.print("Response: ");
+  Serial.println(response);
+  Serial.println("POST finished.");
+
+  delay(5000);
+
+  
+
+  Serial.println("Database updated");
+  Serial.println();
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  delay(2000);
+//  Firebase.pushString("/Ultrasonic/Distance",fireDist);
+}
+void printWiFiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+  // print your board's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
+
+
