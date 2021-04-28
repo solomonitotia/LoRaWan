@@ -1,0 +1,15 @@
+09:31:10.783 -> Device Information
+09:31:10.783 -> 
+09:31:10.783 -> EUI: 0004A30B001BDA87
+09:31:10.783 -> Battery: 5060
+09:31:10.836 -> AppEUI: 70B3D57ED0041604
+09:31:10.836 -> DevEUI: 0004A30B001BDA87
+
+Appey : D69B29A152820001FDF3C905100E2299
+
+******************************************************
+
+ adding device in the things stack
+
+******************************************************
+https://www.thethingsindustries.com/docs/devices/adding-devices/
